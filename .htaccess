@@ -1,0 +1,4 @@
+authtype basic
+authname "WebServer"
+authuserfile /etc/www.passwd
+require valid-user
