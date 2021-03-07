@@ -1,0 +1,107 @@
+ 
+- hosts: webserver
+
+  vars_files:
+  - http_vars.yml
+  - http_secret.yml
+
+  handlers:
+  - name: restart_service
+    service:
+        name: "httpd"
+        state: "restarted"
+
+  tasks:
+  - name: Creating dvd for mounting
+    file:
+      state: directory
+      path: "/{{ dir_dvd }}"
+
+  - name: Mounting dvd 
+    mount:
+      src: "/dev/cdrom"
+      path: "/{{ dir_dvd }}"
+      state: "mounted"
+      fstype: "iso9660"
+
+  - name: Configure yum for AppStream
+    yum_repository:
+      name: "mydvd1"
+      baseurl: "/{{ dir_dvd }}/AppStream/"
+      description: "yum dvd1 for package"
+      gpgcheck: no
+
+  - name: Configure yum for BaseOS
+    yum_repository:
+      name: "mydvd2"
+      baseurl: "/{{ dir_dvd }}/BaseOS/"
+      description: "yum dvd2 for package"
+      gpgcheck: no
+
+  - name: Install httpd
+    package:
+       name: httpd
+       state: present
+
+  - name: Create Document Root Folder
+    file:
+      state: directory
+      path: "{{ doc_root }}"
+
+  - name: Change Document Root and Port Number
+    template:
+      dest: "/etc/httpd/conf.d/demo.conf"
+      src: "demo.conf"
+    notify: restart_service
+
+  - name: Copy Webpage to Document Root
+    copy:
+      dest: "{{ doc_root }}/index.html"
+      content: "Webserver Configured Using Ansible!!!"
+
+  - name: Allow Authentication in httpd configuration file
+    replace:
+      path: "/etc/httpd/conf/httpd.conf"
+      regexp: "AllowOverride None"
+      replace: "AllowOverride Authconfig"
+    notify: restart_service
+
+  - name: Install Python
+    package:
+        name: python3
+        state: present
+
+  - name: Install Passlib module
+    pip:
+        name: passlib
+        state: present     
+
+  - name: Create User for Authentication
+    htpasswd:
+        path: "/etc/www.passwd"
+        name: "{{ username }}"
+        password: "{{ password }}"
+
+  - name: Create htaccess file in Document Root
+    file:
+        state: touch
+        path: "{{ doc_root }}/.htaccess"
+
+  - name: Restrict Access to Webserver with htaccess file
+    copy: 
+        dest: "{{ doc_root }}/.htaccess"
+        src: "/root/playbook/.htaccess"
+    notify: restart_service
+
+  - name: Start httpd service
+    service:
+      name: httpd
+      state: started
+
+  - name: Set Firewall Rule
+    firewalld:
+      port: "{{ port_no }}/tcp"
+      state: enabled
+      permanent: yes
+      immediate: yes 
+

@@ -1,0 +1,4 @@
+- dir_dvd: dvd11
+- doc_root: /var/www/http1
+- port_no: 8080
+
